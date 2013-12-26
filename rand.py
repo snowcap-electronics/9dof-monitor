@@ -26,11 +26,18 @@ pg.setConfigOptions(antialias=True)
 
 p6 = win.addPlot(title="Updating plot")
 curve = p6.plot(pen='y')
-data = np.random.normal(size=(10,1000))
+#data = np.random.normal(size=(1000,1000))
+#data = np.random.normal(size=(10000))
+#print "sizeof (data) " + sizeof(data)
+data = np.arange(1000)
+#data = np.reshape(x, (10,1000))
+print type(data)
+print data.itemsize
 ptr = 0
 def update():
     global curve, data, ptr, p6
-    curve.setData(data[ptr%10])
+    data = np.roll(data, -1)
+    curve.setData(data)
     if ptr == 0:
         p6.enableAutoRange('xy', False)  ## stop auto-scaling after the first data set is plotted
     ptr += 1
