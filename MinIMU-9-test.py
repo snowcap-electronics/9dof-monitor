@@ -46,7 +46,7 @@ from time import time
 grad2rad = 3.141592/180.0
 
 # Check your COM port and baud rate
-ser = serial.Serial(port='COM9',baudrate=115200, timeout=1)
+ser = serial.Serial(port='/dev/ttyACM0',baudrate=115200, timeout=1)
 
 # Main scene
 scene=display(title="Pololu MinIMU-9 + Arduino AHRS")
@@ -112,16 +112,17 @@ pitch=0
 yaw=0
 while 1:
     line = ser.readline()
-    if line.find("!ANG:") != -1:          # filter out incomplete (invalid) lines
-        line = line.replace("!ANG:","")   # Delete "!ANG:"
+    if line.find("ahrs:") != -1:          # filter out incomplete (invalid) lines
+        line = line.replace("ahrs:","")   # Delete "!ANG:"
         print line
         f.write(line)                     # Write to the output log file
-        words = string.split(line,",")    # Fields split
+        words = string.split(line.strip(),",")    # Fields split
+
         if len(words) > 2:
             try:
-                roll = float(words[0])*grad2rad
-                pitch = float(words[1])*grad2rad
-                yaw = float(words[2])*grad2rad
+                roll = float(words[0].strip(' \t\n\r\0'))*grad2rad
+                pitch = float(words[1].strip(' \t\n\r\0'))*grad2rad
+                yaw = float(words[2].strip(' \t\n\r\0'))*grad2rad
             except:
                 print "Invalid line"
 
@@ -141,8 +142,8 @@ while 1:
             cil_pitch.axis=(0.2*cos(pitch),0.2*sin(pitch),0)
             cil_pitch2.axis=(-0.2*cos(pitch),-0.2*sin(pitch),0)
             arrow_course.axis=(0.2*sin(yaw),0.2*cos(yaw),0)
-            L1.text = str(float(words[0]))
-            L2.text = str(float(words[1]))
-            L3.text = str(float(words[2]))        
+            L1.text = str(float(words[0].strip(' \t\n\r\0')))
+            L2.text = str(float(words[1].strip(' \t\n\r\0')))
+            L3.text = str(float(words[2].strip(' \t\n\r\0')))
 ser.close
 f.close
