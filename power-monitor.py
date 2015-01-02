@@ -29,6 +29,7 @@ import re
 import os
 from time import gmtime, strftime
 import sqlite3
+import urllib
 
 # SQL Queries
 #
@@ -37,9 +38,16 @@ import sqlite3
 # .mode csv
 #
 # Sum of Wh per hour:
-# SELECT strftime('%Y-%m-%d-%H', date, 'unixepoch'), sum(blinks) FROM current GROUP BY strftime('%Y-%m-%d-%H', date, 'unixepoch');
+# SELECT strftime('%Y-%m-%d-%H', date, 'unixepoch'), sum(blinks), avg(battery) FROM current GROUP BY strftime('%Y-%m-%d-%H', date, 'unixepoch');
 
-DBPATH = '/home/kulve/projects/flyingfox/current.db'
+#DBPATH = os.environ['HOME'] + '/projects/flyingfox/current.db'
+DBPATH = '/home/pi/projects/flyingfox/current.db'
+APIKEY =""
+THINGURL = "https://api.thingspeak.com/update"
+
+
+old_seq = 0
+old_timestamp = 0
 
 #
 # Init DB
@@ -80,6 +88,44 @@ def parse_line(line):
     return values
 
 #
+# Send statistics to the Phant
+#
+# 1406881422,43079,3129,+22.81,66,126,175
+def upload_data(values):
+    global old_seq
+    global old_timestamp
+
+    timestamp = int(values[0])
+    seq = int(values[1])
+    batt = int(values[2])
+    temp = float(values[3])
+    # WAR, currently counts both rising and falling edges
+    blinks = int(int(values[4]) / 2)
+    rssi = int(values[5])
+    lqi = int(values[6])
+
+    if old_seq == 0:
+        old_seq = seq
+        old_timestamp = timestamp
+        return
+
+    # Assume steady consumption and count the average if missing transmissions
+    skips = seq - old_seq
+    blinks = skips * blinks
+
+    time_sec = timestamp - old_timestamp
+    power = int(blinks * (3600 / float(time_sec)) + 0.5)
+    #params = urllib.urlencode({'timestamp': timestamp, 'batt': batt, 'temp': temp, 'power': power, 'rssi': rssi, 'lqi': lqi})
+    #url = PHANTURL + "&" + params
+    params = urllib.urlencode({'api_key': APIKEY, 'timestamp': timestamp, 'field1': seq, 'field2': batt, 'field3': temp, 'field4': power, 'field5': rssi, 'field6': lqi})
+    print THINGURL, params
+    f = urllib.urlopen(THINGURL, params)
+    print "http code:", f.getcode()
+    print f.read()
+    f.close()
+
+
+#
 # Main
 #
 if len(sys.argv) != 1:
@@ -91,15 +137,23 @@ db = init_db()
 ser = serial.Serial('/dev/ttyACM0', 115200)
 while (1):
     line = ser.readline()
+    if (line.find('d: ') != -1):
+        continue
+
     if (line.find('P: ') != -1):
-        if (line.find('d: ') != -1):
-            print "Invalid line (d:):"
-            print line
-            continue
         v = parse_line(line)
         if (len(v) != 7):
             print "Invalid line (len != 7):"
             print line
             continue
         insert_db(db, v)
+        upload_data(v)
+
+    if (line.find('S[0]: ') != -1):
+        v = parse_line(line)
+        if (len(v) != 11):
+            print "Invalid line (len != 11):"
+            print line
+            continue
+        print line
 
