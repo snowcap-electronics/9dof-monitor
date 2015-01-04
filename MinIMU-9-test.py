@@ -120,9 +120,9 @@ while 1:
 
         if len(words) > 2:
             try:
-                yaw   = float(words[0].strip(' \t\n\r\0'))*grad2rad
-                pitch = float(words[1].strip(' \t\n\r\0'))*grad2rad
-                roll  = float(words[2].strip(' \t\n\r\0'))*grad2rad
+                roll  = float(words[1].strip(' \t\n\r\0'))*grad2rad
+                pitch = float(words[2].strip(' \t\n\r\0'))*grad2rad
+                yaw   = float(words[3].strip(' \t\n\r\0'))*grad2rad
             except:
                 print "Invalid line"
 

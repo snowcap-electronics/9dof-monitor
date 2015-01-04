@@ -59,26 +59,30 @@ def update():
     while (ser.inWaiting()):
 
         read = ser.readline()
-        if (read.find('9dof:') == 1):
-            read = read[6:]
-            s_list.append(read.split(','))
-            has_new_raw += 1
+        if (read.find('9dof:') == -1):
+            continue
+
+        read = read[6:]
+        s_list.append(read.split(','))
+        has_new_raw += 1
 
         # Maintain ~60 FPS (~16ms)
         if (time.time() - start_time > 0.016):
             break
 
+    if not has_new_raw:
+        return
+
     # Make room for new readings
-    if has_new_raw:
-        data_x = np.roll(data_x, -has_new_raw)
-        data_y = np.roll(data_y, -has_new_raw)
-        data_z = np.roll(data_z, -has_new_raw)
-        magn_data_x = np.roll(magn_data_x, -has_new_raw)
-        magn_data_y = np.roll(magn_data_y, -has_new_raw)
-        magn_data_z = np.roll(magn_data_z, -has_new_raw)
-        gyro_data_x = np.roll(gyro_data_x, -has_new_raw)
-        gyro_data_y = np.roll(gyro_data_y, -has_new_raw)
-        gyro_data_z = np.roll(gyro_data_z, -has_new_raw)
+    data_x = np.roll(data_x, -has_new_raw)
+    data_y = np.roll(data_y, -has_new_raw)
+    data_z = np.roll(data_z, -has_new_raw)
+    magn_data_x = np.roll(magn_data_x, -has_new_raw)
+    magn_data_y = np.roll(magn_data_y, -has_new_raw)
+    magn_data_z = np.roll(magn_data_z, -has_new_raw)
+    gyro_data_x = np.roll(gyro_data_x, -has_new_raw)
+    gyro_data_y = np.roll(gyro_data_y, -has_new_raw)
+    gyro_data_z = np.roll(gyro_data_z, -has_new_raw)
 
     # Push readings to the data arrays
     for x in range(has_new_raw):
