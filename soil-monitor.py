@@ -30,12 +30,30 @@ import os
 from time import gmtime, strftime
 import sqlite3
 import urllib
+import json
 
-APIKEY ="FIXME: READ FROM CONFIG FILE"
+APIKEY ="Config file format: { 'apikey' : '...' }"
 THINGURL = "https://api.thingspeak.com/update"
 
 old_seq = 0
 old_timestamp = 0
+
+#
+# Turn a json config file into a settings dict
+#
+def parse_config(conffile):
+    global APIKEY
+
+    try:
+        config = json.load(open(conffile, 'r'))
+        APIKEY = config['apikey']
+    except KeyError as e:
+        print "Apikey not defined in configuration file '%s'" % conffile
+        exit(1)
+    except Exception as e:
+        print "Error:", e
+        print "'%s' is not a valid config file" % conffile
+        exit(1)
 
 #
 # Parse one line to values
@@ -78,9 +96,12 @@ def upload_data(values):
 #
 # Main
 #
-if len(sys.argv) != 1:
-    print "Usage: " + sys.argv[0]
+if len(sys.argv) != 2:
+    print "Usage: " + sys.argv[0] + " <config file>"
     exit(1)
+
+if len(sys.argv) > 1:
+    parse_config(sys.argv[1])
 
 ser = serial.Serial('/dev/ttyACM0', 115200)
 while (1):
