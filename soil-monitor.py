@@ -27,12 +27,13 @@ import serial
 import sys
 import re
 import os
-from time import gmtime, strftime
+from time import gmtime, mktime, ctime, tzset, timezone
 import sqlite3
 import urllib
 import json
 
-APIKEY ="Config file format: { 'apikey' : '...' }"
+# Config file format: { 'apikey' : '...' }
+APIKEY ="INVALID"
 THINGURL = "https://api.thingspeak.com/update"
 
 old_seq = 0
@@ -48,8 +49,7 @@ def parse_config(conffile):
         config = json.load(open(conffile, 'r'))
         APIKEY = config['apikey']
     except KeyError as e:
-        print "Apikey not defined in configuration file '%s'" % conffile
-        exit(1)
+        pass
     except Exception as e:
         print "Error:", e
         print "'%s' is not a valid config file" % conffile
@@ -60,55 +60,73 @@ def parse_config(conffile):
 #
 def parse_line(line):
     line.rstrip()
-    values = line.rsplit()
-    values[:0] = [int(strftime("%s", gmtime()))]
+    linevalues = line.rsplit()
+    values = [mktime(gmtime())] + linevalues
     return values
 
 #
-# Send statistics to the ThingSpeak
+# Send statistics to the ThingSpeak or print locally if no apikey
 #
 # Time         ID      uptime adj    soil    solar  caps    vcc     temp      rssi  lqi
 # [1414379517, 'S[0]', '133', '728', '3974', '286', '2050', '2646', '+10.06', '83', '173']
 def upload_data(values):
+    global APIKEY
     global old_seq
     global old_timestamp
 
-    timestamp = int(values[0])
-    id = values[1]
-    seq = int(values[2])
-    adj = int(values[3])
-    soil = int(values[4])
-    solar = int(values[5])
-    caps = int(values[6])
-    vcc = int(values[7])
-    temp = float(values[8])
-    rssi = int(values[9])
-    lqi = int(values[10])
+    if len(values) < 11:
+        return
 
-    params = urllib.urlencode({'api_key': APIKEY, 'timestamp': timestamp, 'field1': seq, 'field2': adj, 'field3': soil, 'field4': solar, 'field5': caps, 'field6': vcc, 'field7': temp, 'field8': rssi})
-    print THINGURL, params
-    f = urllib.urlopen(THINGURL, params)
-    print "http code:", f.getcode()
-    print f.read()
-    f.close()
+    try:
+        timestamp = int(values[0])
+        id = values[1]
+        seq = int(values[2])
+        adj = int(values[3])
+        soil = int(values[4])
+        solar = int(values[5])
+        caps = int(values[6])
+        vcc = int(values[7])
+        temp = float(values[8])
+        rssi = int(values[9])
+        lqi = int(values[10])
+    except ValueError:
+        return
 
+    if APIKEY == "INVALID":
+        print "Status at", ctime(timestamp - timezone)
+        print "  Seq:", seq
+        print "  Adj:", adj
+        print "  Soil:", soil
+        print "  Solar:", solar
+        print "  Caps:", caps
+        print "  VCC:", vcc
+        print "  Temp:", values[8], "°C"
+        print "  RSSI:", rssi
+    else:
+        params = urllib.urlencode({'api_key': APIKEY, 'timestamp': timestamp, 'field1': seq, 'field2': adj, 'field3': soil, 'field4': solar, 'field5': caps, 'field6': vcc, 'field7': temp, 'field8': rssi})
+        print THINGURL, params
+        f = urllib.urlopen(THINGURL, params)
+        print "http code:", f.getcode()
+        print f.read()
+        f.close()
 
 #
 # Main
 #
-if len(sys.argv) != 2:
-    print "Usage: " + sys.argv[0] + " <config file>"
+if len(sys.argv) > 2:
+    print "Usage: " + sys.argv[0] + " [config file]"
     exit(1)
 
 if len(sys.argv) > 1:
     parse_config(sys.argv[1])
 
 ser = serial.Serial('/dev/ttyACM0', 115200)
+
+tzset()
 while (1):
     line = ser.readline()
     if (line.find('d: ') == -1):
         v = parse_line(line)
-        print v
         upload_data(v)
 
 
