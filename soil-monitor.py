@@ -32,28 +32,45 @@ import sqlite3
 import urllib
 import json
 
-# Config file format: { 'apikey' : '...' }
 APIKEY ="INVALID"
 THINGURL = "https://api.thingspeak.com/update"
+
+DEVICE = "/dev/ttyACM0"
+BAUD_RATE = 115200
 
 old_seq = 0
 old_timestamp = 0
 
 #
 # Turn a json config file into a settings dict
+# Config file format: { 'apikey' : '...',  'device' : '/dev/...', ...  }
 #
 def parse_config(conffile):
     global APIKEY
+    global DEVICE
+    global BAUD_RATE
 
     try:
         config = json.load(open(conffile, 'r'))
-        APIKEY = config['apikey']
-    except KeyError as e:
-        pass
     except Exception as e:
         print "Error:", e
         print "'%s' is not a valid config file" % conffile
         exit(1)
+
+    try:
+        APIKEY = config['apikey']
+    except KeyError as e:
+        pass
+
+    try:
+        DEVICE = config['device']
+    except KeyError as e:
+        pass
+
+    try:
+        BAUD_RATE = config['baud_rate']
+    except KeyError as e:
+        pass
 
 #
 # Parse one line to values
@@ -120,7 +137,7 @@ if len(sys.argv) > 2:
 if len(sys.argv) > 1:
     parse_config(sys.argv[1])
 
-ser = serial.Serial('/dev/ttyACM0', 115200)
+ser = serial.Serial(DEVICE, BAUD_RATE)
 
 tzset()
 while (1):
