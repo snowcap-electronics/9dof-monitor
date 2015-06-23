@@ -92,6 +92,7 @@ def upload_data(values):
     global old_timestamp
 
     if len(values) < 11:
+        print "Value array not the excpected length! Ignoring the data point."
         return
 
     try:
@@ -106,19 +107,22 @@ def upload_data(values):
         temp = float(values[8])
         rssi = int(values[9])
         lqi = int(values[10])
-    except ValueError:
+    except ValueError as e:
+        print "Error getting values:", e
+        print "Ignoring the data point."
         return
 
     if APIKEY == "INVALID":
         print "Status at", ctime(timestamp - timezone)
-        print "  Seq:", seq
-        print "  Adj:", adj
-        print "  Soil:", soil
+        print "  Seq  :", seq
+        print "  Adj  :", adj
+        print "  Soil :", soil
         print "  Solar:", solar
-        print "  Caps:", caps
-        print "  VCC:", vcc
-        print "  Temp:", values[8], "°C"
-        print "  RSSI:", rssi
+        print "  Caps :", caps
+        print "  VCC  :", vcc
+        print "  Temp :", values[8], "°C"
+        print "  RSSI :", rssi
+        print "  LQI  :", lqi
     else:
         params = urllib.urlencode({'api_key': APIKEY, 'timestamp': timestamp, 'field1': seq, 'field2': adj, 'field3': soil, 'field4': solar, 'field5': caps, 'field6': vcc, 'field7': temp, 'field8': rssi})
         print THINGURL, params
