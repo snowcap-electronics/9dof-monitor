@@ -27,10 +27,14 @@ import serial
 import sys
 import re
 import os
-from time import gmtime, mktime, ctime, tzset, timezone
+from time import sleep, tzset
+from datetime import datetime
+import calendar
 import sqlite3
 import urllib
 import json
+from collections import deque
+import threading
 
 APIKEY ="INVALID"
 THINGURL = "https://api.thingspeak.com/update"
@@ -78,7 +82,7 @@ def parse_config(conffile):
 def parse_line(line):
     line.rstrip()
     linevalues = line.rsplit()
-    values = [mktime(gmtime())] + linevalues
+    values = [calendar.timegm(datetime.utcnow().timetuple())] + linevalues
     return values
 
 #
@@ -113,7 +117,7 @@ def upload_data(values):
         return
 
     if APIKEY == "INVALID":
-        print "Status at", ctime(timestamp - timezone)
+        print "Status at", datetime.fromtimestamp(timestamp).ctime()
         print "  Seq  :", seq
         print "  Adj  :", adj
         print "  Soil :", soil
@@ -124,12 +128,25 @@ def upload_data(values):
         print "  RSSI :", rssi
         print "  LQI  :", lqi
     else:
-        params = urllib.urlencode({'api_key': APIKEY, 'timestamp': timestamp, 'field1': seq, 'field2': adj, 'field3': soil, 'field4': solar, 'field5': caps, 'field6': vcc, 'field7': temp, 'field8': rssi})
+        datestring = datetime.utcfromtimestamp(timestamp).isoformat()
+        params = urllib.urlencode({'api_key': APIKEY, 'created_at': datestring, 'field1': seq, 'field2': adj, 'field3': soil, 'field4': solar, 'field5': caps, 'field6': vcc, 'field7': temp, 'field8': rssi})
         print THINGURL, params
         f = urllib.urlopen(THINGURL, params)
         print "http code:", f.getcode()
         print f.read()
         f.close()
+
+class Reader(threading.Thread):
+    def __init__(self, queue=None, device=DEVICE, baud_rate=BAUD_RATE):
+        threading.Thread.__init__(self)
+        self.ser = serial.Serial(device, baud_rate)
+        self.q = queue
+
+    def run(self):
+        while True:
+            line = self.ser.readline()
+            if (line.find('d: ') == -1):
+                self.q.append(parse_line(line))
 
 #
 # Main
@@ -141,14 +158,27 @@ if len(sys.argv) > 2:
 if len(sys.argv) > 1:
     parse_config(sys.argv[1])
 
-ser = serial.Serial(DEVICE, BAUD_RATE)
-
 tzset()
+queue = deque()
+reader = Reader(queue)
+reader.daemon = True
+reader.start()
 while (1):
-    line = ser.readline()
-    if (line.find('d: ') == -1):
-        v = parse_line(line)
-        upload_data(v)
+    try:
+        values = queue.popleft()
+        upload_data(values)
+    except IndexError:
+        # It's ok to have an empty queue
+        pass
+    except IOError:
+        # Send failed, likely due to connection problems. Queue for retry
+        queue.appendleft(values)
+        print "Error pushing values to ThingSpeak, %d items in queue" % len(queue)
+
+    # Thingspeak enforces a 15s limit on update rate, let's be sure not to
+    # violate that. Also to note that if the queue fills up faster than this,
+    # we will never empty it...
+    sleep(20)
 
 
 
