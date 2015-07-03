@@ -139,12 +139,27 @@ def upload_data(values):
 class Reader(threading.Thread):
     def __init__(self, queue=None, device=DEVICE, baud_rate=BAUD_RATE):
         threading.Thread.__init__(self)
-        self.ser = serial.Serial(device, baud_rate)
+        self.device = device
+        self.baud_rate = baud_rate
         self.q = queue
+        self.ser = None
 
     def run(self):
         while True:
-            line = self.ser.readline()
+            if self.ser is None:
+                try:
+                    self.ser = serial.Serial(self.device, self.baud_rate)
+                    print "Opened '%s' for reading" % self.device
+                except IOError:
+                    print "Serial device '%s' not accessible, waiting..." % self.device
+                    sleep(2)
+                    continue
+            try:
+                line = self.ser.readline()
+            except serial.SerialException:
+                self.ser.close()
+                self.ser = None
+                continue
             if (line.find('d: ') == -1):
                 self.q.append(parse_line(line))
 
