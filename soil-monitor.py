@@ -129,7 +129,7 @@ def upload_data(values):
         print "  LQI  :", lqi
     else:
         datestring = datetime.utcfromtimestamp(timestamp).isoformat()
-        params = urllib.urlencode({'api_key': APIKEY, 'created_at': datestring, 'field1': seq, 'field2': adj, 'field3': soil, 'field4': solar, 'field5': caps, 'field6': vcc, 'field7': temp, 'field8': rssi})
+        params = urllib.urlencode({'api_key': APIKEY, 'created_at': datestring, 'field1': seq, 'field2': adj, 'field3': soil, 'field4': solar, 'field5': caps, 'field6': vcc, 'field7': temp, 'field8': lqi})
         print THINGURL, params
         f = urllib.urlopen(THINGURL, params)
         print "http code:", f.getcode()
